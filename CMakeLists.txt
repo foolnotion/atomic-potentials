@@ -10,10 +10,29 @@ project(
     LANGUAGES CXX
 )
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
+if(CMAKE_EXPORT_COMPILE_COMMANDS)
+    set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
+endif()
+
 docs_early_return()
 
 include(cmake/project-is-top-level.cmake)
 include(cmake/variables.cmake)
+
+# ---- Dependencies ----
+find_package(Ceres REQUIRED)   # use the Ceres optimizer for coefficients tuning
+find_package(Eigen3 REQUIRED)
+find_package(Threads REQUIRED)
+find_package(cxxopts REQUIRED)
+find_package(fmt REQUIRED)
+find_package(operon REQUIRED)
+find_package(operon REQUIRED)
+find_package(pratt-parser REQUIRED)
+find_package(vstat REQUIRED)
 
 # ---- Declare library ----
 
@@ -29,6 +48,8 @@ target_include_directories(
 )
 
 target_compile_features(atomic-potentials_lib PUBLIC cxx_std_17)
+
+target_link_libraries(atomic-potentials_lib PUBLIC operon::operon fmt::fmt scn)
 
 # ---- Declare executable ----
 

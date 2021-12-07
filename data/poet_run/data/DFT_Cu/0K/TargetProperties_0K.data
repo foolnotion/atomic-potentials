@@ -1,0 +1,25 @@
+reference_1
+a0          FCC       3.63244675155019  Å
+a0          BCC       2.88829317709918  Å
+C11         FCC       176.19        GPa
+C12         FCC       123.13        GPa
+C44         FCC       76.71       GPa
+delta_E0      BCC_FCC   0.03604332      eV/atom
+delta_E0      HCP_FCC   0.0046109425    eV/atom
+BVRH          FCC       140.81666666666666  GPa
+Ev_f          FCC       1.073068315      eV
+Edumbbell_f	FCC	3.54885070499999	eV
+Esurf_100     FCC       91.9846291607454000 meV/(Å^2)
+Esurf_110     FCC       97.6641818107547000 meV/(Å^2)
+Esurf_111     FCC       82.3208337595191000 meV/(Å^2)
+Esurf_210     FCC       101.282937237226000 meV/(Å^2)
+Esurf_211     FCC       94.6316240575204000 meV/(Å^2)
+Esurf_221     FCC       92.6726611187217000 meV/(Å^2)
+Esurf_310     FCC       100.379330701296000 meV/(Å^2)
+Esurf_311     FCC       97.0272003534887000 meV/(Å^2)
+Esurf_320     FCC       101.222402107540000 meV/(Å^2)
+Esurf_321     FCC       98.3131071513340000 meV/(Å^2)
+Esurf_322     FCC       90.8335106450132000 meV/(Å^2)
+Esurf_331     FCC       94.9029563621752000 meV/(Å^2)
+Esurf_332     FCC       89.4760725825330000 meV/(Å^2)
+
