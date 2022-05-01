@@ -10,7 +10,7 @@ project(
     LANGUAGES CXX
 )
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
@@ -30,15 +30,16 @@ find_package(Threads REQUIRED)
 find_package(cxxopts REQUIRED)
 find_package(fmt REQUIRED)
 find_package(operon REQUIRED)
-find_package(operon REQUIRED)
 find_package(pratt-parser REQUIRED)
-find_package(vstat REQUIRED)
+find_package(robin_hood REQUIRED)
 
 # ---- Declare library ----
 
 add_library(
     atomic-potentials_lib OBJECT
-    source/lib.cpp
+    source/atomic.cpp
+    source/operator_factory.cpp
+    source/util.cpp
 )
 
 target_include_directories(
@@ -47,9 +48,13 @@ target_include_directories(
     "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/source>"
 )
 
-target_compile_features(atomic-potentials_lib PUBLIC cxx_std_17)
+target_compile_features(atomic-potentials_lib PUBLIC cxx_std_20)
 
 target_link_libraries(atomic-potentials_lib PUBLIC operon::operon fmt::fmt scn)
+
+# in case operon is linked with openlibm, we wanna discover it here
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(openlibm IMPORTED_TARGET openlibm)
 
 # ---- Declare executable ----
 

@@ -1,4 +1,4 @@
-#include "lib.hpp"
+#include "atomic.hpp"
 
 #include <Eigen/Core>
 #include <array>
@@ -6,10 +6,12 @@
 #include <fstream>
 #include <iostream>
 #include <scn/scn.h>
+#include <scn/scan/list.h>
 #include <string>
 #include <vector>
 
 #include <fmt/format.h>
+#include <operon/core/dataset.hpp>
 
 using std::getline;
 using std::ifstream;
@@ -32,7 +34,7 @@ auto parse_coordinates(string const& coord_path, size_t cluster_size) -> std::ve
     string line;
 
     vector<matrix> coordinates;
-    coordinates.reserve(nline / cluster_size);
+    coordinates.reserve(nline);
 
     Eigen::Index row { 0 };
     vector<Operon::Scalar> values;
@@ -41,7 +43,8 @@ auto parse_coordinates(string const& coord_path, size_t cluster_size) -> std::ve
             coordinates.emplace_back(cluster_size, ncoord);
         }
         values.clear();
-        auto res = scn::scan_list(line, values, ',');
+        scn::scan_list_options<char> opts{ {','}, {} };
+        auto res = scn::scan_list_ex(line, values, opts);
         ENSURE(res);
         coordinates.back().row(row++) = Eigen::Map<Eigen::Array<Operon::Scalar, -1, 1>>(values.data(), static_cast<Eigen::Index>(ncoord));
         if (row == cluster_size) {
@@ -59,30 +62,30 @@ auto parse_energy(string const& energy_path) -> std::vector<Operon::Scalar>
     string line;
     Operon::Scalar e {};
     while (getline(f, line)) {
-        scn::scan(line, "{}", e);
+        (void) scn::scan(line, "{}", e);
         energy.push_back(e);
     }
     return energy;
 }
 
-// a new function type to represent the summation of interatomic distances
-summation::summation(string const& coord_path, string const& energy_path, size_t cluster_size)
-    : cluster_coordinates_(parse_coordinates(coord_path, cluster_size))
-    , cluster_energy_(parse_energy(energy_path))
-    , cluster_size_(cluster_size)
+sum::sum(Operon::Interpreter& interpreter, /* path to coordinates file */ std::string const& cpath, /*cluster_size*/ size_t size)
+    : interpreter_(interpreter), cluster_size_(size)
 {
-    ENSURE(cluster_energy_.size() == cluster_coordinates_.size());
+    auto coordinates = parse_coordinates(cpath, size);
 
-    for (auto const& m : cluster_coordinates_) {
-        Operon::Scalar sum { 0 };
-        matrix d(cluster_size, cluster_size);
-        for (int i = 0; i < m.rows() - 1; ++i) {
-            for (int j = i + 1; j < m.rows(); ++j) {
-                d(i, j) = (m.row(i) - m.row(j)).matrix().norm();
+    auto s = static_cast<Eigen::Index>(size);
+    for (auto const& c : coordinates) {
+        matrix dist(s, s);
+
+        for(auto i = 0; i < c.rows() - 1; ++i) { // NOLINT
+            for (auto j = i+1; j < c.rows(); ++j) { // NOLINT
+                dist(i, j) = dist(j, i) = (c.row(i) - c.row(j)).matrix().norm();
             }
         }
-        //std::cout << d << "\n";
-        pairwise_distances_.push_back(d);
+
+        auto m = dist.reshaped();
+        data_.emplace_back(m);
+        data_.back().SetVariableNames({ "input" });
     }
 }
 } // namespace atomic
