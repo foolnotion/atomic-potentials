@@ -193,28 +193,25 @@ auto main(int argc, char** argv) -> int
         auto const& [error, scale] = Operon::ParseErrorMetric(result["error-metric"].as<std::string>());
         Operon::Interpreter interpreter;
 
-        // register custom symbols with the interpreter
         // TODO: make these paths into cli options
         static const std::string coord_path { "./data/poet_run/data/DFT_Cu/NPT_FCC_1400K/F_coord.data" };
         static const std::string energy_path { "./data/poet_run/data/DFT_Cu/NPT_FCC_1400K/E0.data" };
         constexpr int cluster_size = 32;
-        atomic::sum sum(interpreter, coord_path, cluster_size);
-        atomic::smooth smooth;
+        atomic::summation_function sum(interpreter, coord_path, cluster_size);
+        atomic::smoothing_function smooth;
 
-        interpreter.GetDispatchTable().RegisterCallable(atomic::sum::hash, sum);
-        interpreter.GetDispatchTable().RegisterCallable(atomic::smooth::hash, smooth);
+        interpreter.GetDispatchTable().RegisterCallable(atomic::summation_function::hash, sum);
+        interpreter.GetDispatchTable().RegisterCallable(atomic::smoothing_function::hash, smooth);
 
-        fmt::print("atomic::sum::hash = {}\n", atomic::sum::hash);
+        Operon::Node sum_node(Operon::NodeType::Dynamic, atomic::summation_function::hash);
+        sum_node.Arity = atomic::summation_function::arity;
 
-        Operon::Node sum_node(Operon::NodeType::Dynamic, atomic::sum::hash);
-        sum_node.Arity = atomic::sum::arity;
-
-        Operon::Node smooth_node(Operon::NodeType::Dynamic, atomic::smooth::hash);
-        smooth_node.Arity = atomic::smooth::arity;
+        Operon::Node smooth_node(Operon::NodeType::Dynamic, atomic::smoothing_function::hash);
+        smooth_node.Arity = atomic::smoothing_function::arity;
 
         auto& pset = problem.GetPrimitiveSet();
         pset.AddPrimitive(sum_node, 1, 1, 1);
-        //pset.AddPrimitive(smooth_node, 1, 1, 1);
+        pset.AddPrimitive(smooth_node, 1, 1, 1);
 
         Operon::Evaluator errorEvaluator(problem, interpreter, *error, scale);
         errorEvaluator.SetLocalOptimizationIterations(config.Iterations);
@@ -226,9 +223,9 @@ auto main(int argc, char** argv) -> int
         Operon::MultiEvaluator evaluator(problem);
         evaluator.SetBudget(config.Evaluations);
         evaluator.Add(errorEvaluator);
-        //evaluator.Add(lengthEvaluator);
+        evaluator.Add(lengthEvaluator);
         //evaluator.Add(shapeEvaluator);
-        evaluator.Add(divEvaluator);
+        //evaluator.Add(divEvaluator);
 
         EXPECT(problem.TrainingRange().Size() > 0);
 

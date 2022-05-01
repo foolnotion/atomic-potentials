@@ -26,7 +26,7 @@ Operon::Hash constexpr sum_hash{1238717263861283123UL};
 Operon::Hash constexpr smooth_hash{8127387129837126261UL};
 Operon::Hash constexpr input_hash{9605156509256513176UL};
 
-struct smooth { // NOLINT
+struct smoothing_function { // NOLINT
     static constexpr Operon::Hash hash{smooth_hash};
 
     template<typename T>
@@ -34,6 +34,12 @@ struct smooth { // NOLINT
     {
         auto& res = m[index];
         auto& arg = m[index-1];
+
+        // act as passthrough if not under a summation
+        if (std::none_of(nodes.begin() + index + 1, nodes.end(), [](auto const& n) { return n.HashValue == sum_hash; })) {
+            res = arg;
+            return;
+        }
 
         using S = typename std::remove_reference_t<decltype(res)>::Scalar; // NOLINT
 
@@ -51,15 +57,17 @@ struct smooth { // NOLINT
     static constexpr double outer_radius{5};
 };
 
-struct sum { // NOLINT
+struct summation_function { // NOLINT
     static constexpr Operon::Hash hash{sum_hash};
     static constexpr size_t arity{1};
 
-    sum(Operon::Interpreter& interpreter, std::string const&, size_t);
+    summation_function(Operon::Interpreter& interpreter, std::string const&, size_t);
 
     template<typename T>
     auto operator()(T& m, std::vector<Operon::Node> const& nodes, size_t index, size_t row) -> void
     {
+        EXPECT(row < data_.size());
+
         auto& res = m[index];
         auto idx = static_cast<Eigen::Index>(index);
 
@@ -69,21 +77,22 @@ struct sum { // NOLINT
             return;
         }
 
+        std::vector<Operon::Scalar> result(data_[0].Rows());
+        Operon::Range range(0, result.size());
+        Operon::Span<Operon::Scalar> span{result.data(), result.size()};
+
         // create a subtree skipping all previous summation nodes
         std::vector<Operon::Node> subtree;
         subtree.reserve(nodes[index].Length);
-
-        for (auto i = idx - nodes[idx].Length; i < idx; ++i) {
-            if (nodes[i].HashValue == sum_hash) { continue; }
-            subtree.push_back(nodes[i]);
-        }
+        auto it = nodes.begin() + idx;
+        std::copy_if(it - nodes[idx].Length, it, std::back_inserter(subtree), [](auto const& n) { return n.HashValue != atomic::summation_function::hash; });
         auto tree = Operon::Tree(subtree).UpdateNodes();
-        std::vector<Operon::Scalar> result(data_[0].Rows());
 
         using S = typename std::remove_reference_t<decltype(res)>::Scalar; // NOLINT
 
-        for (auto r = row; r < std::min(data_.size(), row + res.size()); ++r) {
-            interpreter_.get().Evaluate(tree, data_[r], Operon::Range(0, data_[r].Rows()), Operon::Span<Operon::Scalar> { result.data(), result.size() }); 
+        auto p = std::min(res.size(), static_cast<int64_t>(data_.size() - row));
+        for (auto r = row; r < row + p; ++r) {
+            interpreter_.get().Evaluate(tree, data_[r], range, span); 
             res(r - row) = S{Eigen::Map<Eigen::Array<Operon::Scalar, -1, 1>>(result.data(), static_cast<Eigen::Index>(result.size())).sum()};
         }
     }

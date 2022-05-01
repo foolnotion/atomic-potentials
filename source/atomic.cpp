@@ -68,7 +68,7 @@ auto parse_energy(string const& energy_path) -> std::vector<Operon::Scalar>
     return energy;
 }
 
-sum::sum(Operon::Interpreter& interpreter, /* path to coordinates file */ std::string const& cpath, /*cluster_size*/ size_t size)
+summation_function::summation_function(Operon::Interpreter& interpreter, /* path to coordinates file */ std::string const& cpath, /*cluster_size*/ size_t size)
     : interpreter_(interpreter), cluster_size_(size)
 {
     auto coordinates = parse_coordinates(cpath, size);
