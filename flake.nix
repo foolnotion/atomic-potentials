@@ -79,7 +79,7 @@
           nativeBuildInputs = with pkgs; [
             bear
             cmake
-            clang_13
+            clang_14
             clang-tools
             cppcheck
             include-what-you-use
