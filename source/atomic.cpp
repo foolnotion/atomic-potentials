@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <operon/core/dataset.hpp>
 
 using std::getline;
@@ -68,14 +69,16 @@ auto parse_energy(string const& energy_path) -> std::vector<Operon::Scalar>
     return energy;
 }
 
-summation_function::summation_function(Operon::Interpreter& interpreter, /* path to coordinates file */ std::string const& cpath, /*cluster_size*/ size_t size)
+summation_function::summation_function(Operon::Interpreter& interpreter, Operon::Range range, /* path to coordinates file */ std::string const& cpath, /*cluster_size*/ size_t size)
     : interpreter_(interpreter), cluster_size_(size)
+    , range_(range)
 {
     auto coordinates = parse_coordinates(cpath, size);
 
     auto s = static_cast<Eigen::Index>(size);
     for (auto const& c : coordinates) {
         matrix dist(s, s);
+        dist.matrix().diagonal().fill(0);
 
         for(auto i = 0; i < c.rows() - 1; ++i) { // NOLINT
             for (auto j = i+1; j < c.rows(); ++j) { // NOLINT
@@ -83,9 +86,10 @@ summation_function::summation_function(Operon::Interpreter& interpreter, /* path
             }
         }
 
-        auto m = dist.reshaped();
+        Eigen::Array<Operon::Scalar, -1, 1> m = dist.reshaped();
         data_.emplace_back(m);
-        data_.back().SetVariableNames({ "input" });
+        data_.back().SetVariableNames({ "r" });
     }
+    fmt::print("data size: {}, input size: {}\n", data_.size(), data_.front().Rows());
 }
 } // namespace atomic
