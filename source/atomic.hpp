@@ -26,10 +26,13 @@ Operon::Hash constexpr sum_hash{1238717263861283123UL};
 Operon::Hash constexpr input_hash{9605156509256513176UL};
 
 struct summation_function { // NOLINT
+
     static constexpr Operon::Hash hash{sum_hash};
     static constexpr size_t arity{1};
 
-    summation_function(Operon::Interpreter& interpreter, Operon::Range range, std::string const&, size_t);
+    summation_function(Operon::Interpreter& interpreter, Operon::Range range);
+
+    auto load_data(std::string const&, int, int) -> void;
 
     // inner and outer cut-off radii, in Angstrom. Taken from Hernandez et al. 2019.
     static constexpr double inner_radius{3};
@@ -56,23 +59,23 @@ struct summation_function { // NOLINT
         std::copy_if(it - nodes[idx].Length, it, std::back_inserter(subtree), [](auto const& n) { return n.HashValue != atomic::summation_function::hash; });
         auto tree = Operon::Tree(subtree).UpdateNodes();
 
-        // allocate memory for the inner evaluation
-        std::vector<Operon::Scalar> buf(data_[0].Rows(), 0);
-        Operon::Span<Operon::Scalar> s(buf.data(), buf.size());
-        Eigen::Map<Eigen::Array<Operon::Scalar, -1, 1>> x(buf.data(), static_cast<Eigen::Index>(buf.size()));
 
         using S = typename std::remove_reference_t<decltype(res)>::Scalar; // NOLINT
-        auto const r2in = S{inner_radius * inner_radius};
-        auto const r2out = S{outer_radius * outer_radius};
+        auto const r2in = inner_radius * inner_radius;
+        auto const r2out = outer_radius * outer_radius;
 
-        res.fill(S{0});
+        Eigen::Map<Eigen::Array<Operon::Scalar, -1, 1>> x(buf_.data(), buf_.size());
+
         auto remaining_rows = std::min(res.size(), Eigen::Index(range_.End() - row));
         for (auto r = 0; r < remaining_rows; ++r) {
             ENSURE(row + r < data_.size());
-            ENSURE(data_[row+r].Rows() == buf.size());
-            interpreter_.get().Evaluate(tree, data_[row + r], {0, buf.size()}, s);
-            auto r2 = x * x;
-            res(r) = S{((S{2} * r2  - S{3} * r2in + r2out) * (r2out - r2).pow(S{2}) * ceres::pow(r2out - r2in, S{-3})).sum()};
+
+            interpreter_.get().Evaluate<Operon::Scalar>(tree, data_[row + r], {0UL, static_cast<size_t>(buf_.size())}, Operon::Span<Operon::Scalar>{buf_.data(), static_cast<size_t>(buf_.size())});
+
+            //auto r2 = x*x;
+            //res(r) = S{((2 * r2  - 3 * r2in + r2out) * (r2out - r2).pow(2) * std::pow(r2out - r2in, -3)).sum()};
+            res(r) = S{x.sum()};
+            //res(r) = S{std::reduce(x.begin(), x.end(), Operon::Scalar{0}, std::plus{})};
         }
     }
 
@@ -80,7 +83,7 @@ struct summation_function { // NOLINT
     std::reference_wrapper<Operon::Interpreter> interpreter_;
     Operon::Range range_;
     std::vector<Operon::Dataset> data_;
-    size_t cluster_size_;
+    std::vector<Operon::Scalar> buf_;
 
 };
 } // namespace atomic

@@ -8,6 +8,7 @@
 #include <scn/scn.h>
 #include <scn/scan/list.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
@@ -69,15 +70,18 @@ auto parse_energy(string const& energy_path) -> std::vector<Operon::Scalar>
     return energy;
 }
 
-summation_function::summation_function(Operon::Interpreter& interpreter, Operon::Range range, /* path to coordinates file */ std::string const& cpath, /*cluster_size*/ size_t size)
-    : interpreter_(interpreter), cluster_size_(size)
-    , range_(range)
+summation_function::summation_function(Operon::Interpreter& interpreter, Operon::Range range)
+    : interpreter_(interpreter)
+    , range_(std::move(range))
 {
-    auto coordinates = parse_coordinates(cpath, size);
+}
 
-    auto s = static_cast<Eigen::Index>(size);
+auto summation_function::load_data(std::string const& path, int cluster_size, int nearest_neighbors) -> void {
+    auto coordinates = parse_coordinates(path, cluster_size);
+
+    data_.clear();
     for (auto const& c : coordinates) {
-        matrix dist(s, s);
+        matrix dist(cluster_size, cluster_size);
         dist.matrix().diagonal().fill(0);
 
         for(auto i = 0; i < c.rows() - 1; ++i) { // NOLINT
@@ -86,10 +90,21 @@ summation_function::summation_function(Operon::Interpreter& interpreter, Operon:
             }
         }
 
-        Eigen::Array<Operon::Scalar, -1, 1> m = dist.reshaped();
+        std::vector<Operon::Scalar> distances;
+        distances.reserve(size_t{static_cast<size_t>(nearest_neighbors * cluster_size)});
+
+        for (auto col : dist.colwise()) {
+            std::stable_sort(col.begin(), col.end());
+            std::copy_n(col.begin(), nearest_neighbors, std::back_inserter(distances)); 
+        }
+
+        Eigen::Array<Operon::Scalar, -1, 1> m = Eigen::Map<decltype(m)>(distances.data(), ssize(distances));
+
         data_.emplace_back(m);
         data_.back().SetVariableNames({ "r" });
     }
-    fmt::print("data size: {}, input size: {}\n", data_.size(), data_.front().Rows());
+    buf_.resize(data_[0].Rows());
+    fmt::print("data size: {}\n", data_.size());
 }
+
 } // namespace atomic

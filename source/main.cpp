@@ -197,7 +197,9 @@ auto main(int argc, char** argv) -> int
         static const std::string coord_path { "./data/poet_run/data/DFT_Cu/NPT_FCC_1400K/F_coord.data" };
         static const std::string energy_path { "./data/poet_run/data/DFT_Cu/NPT_FCC_1400K/E0.data" };
         constexpr int cluster_size = 32;
-        atomic::summation_function sum(interpreter, trainingRange, coord_path, cluster_size);
+        constexpr int nearest_neighbors = 6;
+        atomic::summation_function sum(interpreter, trainingRange);
+        sum.load_data(coord_path, cluster_size, nearest_neighbors);
 
         interpreter.GetDispatchTable().RegisterCallable(atomic::summation_function::hash, sum);
 
@@ -274,8 +276,7 @@ auto main(int argc, char** argv) -> int
         // some boilerplate for reporting results
         const size_t idx { 0 };
         auto getBest = [&](Operon::Span<Operon::Individual const> pop) -> Operon::Individual {
-            const auto minElem = std::min_element(pop.begin(), pop.end(), [&](auto const& lhs, auto const& rhs) { return lhs[idx] < rhs[idx]; });
-            return *minElem;
+            return *std::min_element(pop.begin(), pop.end(), [&](auto const& lhs, auto const& rhs) { return lhs[idx] < rhs[idx]; });
         };
 
         Operon::Individual best(1);
@@ -335,12 +336,12 @@ auto main(int argc, char** argv) -> int
             double maeTest{};
 
             auto scaleTrain = taskflow.emplace([&]() {
-                Eigen::Map<Eigen::Array<Operon::Scalar, -1, 1>> estimated(estimatedTrain.data(), estimatedTrain.size());
+                Eigen::Map<Eigen::Array<Operon::Scalar, -1, 1>> estimated(estimatedTrain.data(), ssize(estimatedTrain));
                 estimated = estimated * a + b;
             });
 
             auto scaleTest = taskflow.emplace([&]() {
-                Eigen::Map<Eigen::Array<Operon::Scalar, -1, 1>> estimated(estimatedTest.data(), estimatedTest.size());
+                Eigen::Map<Eigen::Array<Operon::Scalar, -1, 1>> estimated(estimatedTest.data(), ssize(estimatedTest));
                 estimated = estimated * a + b;
             });
 
@@ -383,6 +384,8 @@ auto main(int argc, char** argv) -> int
             auto const* format = ":>#8.3g"; // see https://fmt.dev/latest/syntax.html
             std::array stats {
                 T{ "iteration", gp.Generation(), ":>" },
+                T{ "best_evl", errorEvaluator(random, best, Operon::Span<Operon::Scalar>{})[0], format },
+                T{ "best[0]", best[0], format },
                 T{ "r2_tr", r2Train, format },
                 T{ "r2_te", r2Test, format },
                 T{ "mae_tr", maeTrain, format },
