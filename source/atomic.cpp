@@ -70,14 +70,11 @@ auto parse_energy(string const& energy_path) -> std::vector<Operon::Scalar>
     return energy;
 }
 
-summation_function::summation_function(Operon::Interpreter& interpreter, Operon::Range range)
-    : interpreter_(interpreter)
-    , range_(std::move(range))
-{
-}
-
-auto summation_function::load_data(std::string const& path, int cluster_size, int nearest_neighbors) -> void {
+// this function loads the snaphots of atomic positions into separate datasets (one per snapshot)
+// only distances below the outer cutoff radius are added
+auto summation_function::load_data(std::string const& path, int cluster_size, double cutoff_radius) -> void {
     auto coordinates = parse_coordinates(path, cluster_size);
+    outer_radius_ = cutoff_radius;
 
     data_.clear();
     for (auto const& c : coordinates) {
@@ -91,20 +88,33 @@ auto summation_function::load_data(std::string const& path, int cluster_size, in
         }
 
         std::vector<Operon::Scalar> distances;
-        distances.reserve(size_t{static_cast<size_t>(nearest_neighbors * cluster_size)});
+        distances.reserve(size_t{static_cast<size_t>(cluster_size * cluster_size)});
 
-        for (auto col : dist.colwise()) {
-            std::stable_sort(col.begin(), col.end());
-            std::copy_n(col.begin(), nearest_neighbors, std::back_inserter(distances)); 
+        std::vector<Operon::Scalar> tmp;
+        for (auto i = 0; i < dist.cols(); ++i) {
+            auto col = dist.col(i);
+            for (int j = 0; j < col.size(); ++j) {
+                if (i != j && col(j) < cutoff_radius) {
+                    tmp.push_back(col(j));
+                }
+            }
+            if (!tmp.empty()) {
+                //std::stable_sort(tmp.begin(), tmp.end());
+                std::copy(tmp.begin(), tmp.end(), std::back_inserter(distances));
+            }
+            tmp.clear();
         }
 
+        // copy the distances into an Eigen::Array
         Eigen::Array<Operon::Scalar, -1, 1> m = Eigen::Map<decltype(m)>(distances.data(), ssize(distances));
 
+        // construct a dataset from the array and add it to our data_
         data_.emplace_back(m);
         data_.back().SetVariableNames({ "r" });
     }
-    buf_.resize(data_[0].Rows());
-    fmt::print("data size: {}\n", data_.size());
+    index_.resize(data_.size());
+    std::iota(index_.begin(), index_.end(), 0UL);
+    fmt::print("data size: {}, dist size: {}\n", data_.size(), data_.front().Rows());
 }
 
 } // namespace atomic

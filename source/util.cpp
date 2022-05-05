@@ -148,6 +148,9 @@ auto InitOptions(std::string const& name, std::string const& desc, int width) ->
 
     opts.add_options()
         ("dataset", "Dataset file name (csv) (required)", cxxopts::value<std::string>())
+        ("coordinates", "Data containing atom coordinates", cxxopts::value<std::string>())
+        ("cluster-size", "The number of atoms in the cluster", cxxopts::value<size_t>())
+        ("cutoff-radius", "Cutoff radius for atomic neighbors (Angstrom)", cxxopts::value<Operon::Scalar>()->default_value("5"))
         ("shuffle", "Shuffle the input data", cxxopts::value<bool>()->default_value("false"))
         ("standardize", "Standardize the training partition (zero mean, unit variance)", cxxopts::value<bool>()->default_value("false"))
         ("train", "Training range specified as start:end (required)", cxxopts::value<std::string>())

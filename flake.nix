@@ -63,6 +63,7 @@
             repo.robin-hood-hashing
             repo.scnlib
             repo.taskflow
+            repo.eve
           ];
 
           shellHook = ''
@@ -91,6 +92,7 @@
             valgrind
             jemalloc
             linuxPackages.perf
+            gnuplot
           ]);
 
           shellHook = ''
