@@ -405,7 +405,8 @@ auto main(int argc, char** argv) -> int // NOLINT
         gp.Run(executor, random, report);
 
         // write best values to file
-        std::ofstream f(fmt::format("./results/{}.csv", config.Seed));
+        auto path = result["results"].as<std::string>();
+        std::ofstream f(fmt::format("./{}/{}.csv", path, config.Seed));
         f << "y_pred,y\n";
         auto y = problem.GetDataset().GetValues("energy");
         auto y_pred = interpreter.Evaluate<Operon::Scalar>(best.Genotype, problem.GetDataset(), {0UL, problem.GetDataset().Rows()});

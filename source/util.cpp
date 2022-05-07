@@ -182,6 +182,7 @@ auto InitOptions(std::string const& name, std::string const& desc, int width) ->
         ("show-primitives", "Display the primitive set used by the algorithm")
         ("threads", "Number of threads to use for parallelism", cxxopts::value<size_t>()->default_value("0"))
         ("timelimit", "Time limit after which the algorithm will terminate", cxxopts::value<size_t>()->default_value(std::to_string(std::numeric_limits<size_t>::max())))
+        ("results", "Results path for saving model prediction", cxxopts::value<std::string>()->default_value("results"))
         ("debug", "Debug mode (more information displayed)")
         ("help", "Print help")
         ("version", "Print version and program information");
