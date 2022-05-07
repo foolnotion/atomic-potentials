@@ -35,8 +35,9 @@ struct summation_function { // NOLINT
     explicit summation_function(Operon::Interpreter& interpreter)
         : interpreter_(interpreter) {}
 
-    auto load_data(std::string const&, int, double) -> void;
+    auto load_data(std::string const&, int, Operon::Scalar) -> void;
 
+    // this function needs to be thread-safe!
     template<typename T>
     auto operator()(T& m, std::vector<Operon::Node> const& nodes, size_t index, Operon::Range range) -> void
     {
@@ -44,7 +45,7 @@ struct summation_function { // NOLINT
         auto idx = static_cast<Eigen::Index>(index);
 
         // if this summation node is nested within another summation node, then behave like a passthrough
-        if (std::any_of(nodes.begin() + idx + 1, nodes.end(), [](auto const& n) { return n.HashValue == atomic::summation_function::hash; })) {
+        if (std::any_of(nodes.begin() + nodes[idx].Parent, nodes.end(), [](auto const& n) { return n.HashValue == atomic::summation_function::hash; })) {
             res = m[index-1];
             return;
         }
@@ -57,28 +58,20 @@ struct summation_function { // NOLINT
         auto tree = Operon::Tree(subtree).UpdateNodes();
 
         using S = typename std::remove_reference_t<decltype(res)>::Scalar; // NOLINT
-        auto const r2in = static_cast<Operon::Scalar>(inner_radius_ * inner_radius_);
-        auto const r2out = static_cast<Operon::Scalar>(outer_radius_ * outer_radius_);
-
-        // smoothing function - see Hernandez 2019 https://www.nature.com/articles/s41524-019-0249-1/
-        auto f = [&](auto r)  {
-            auto r2 = r * r;
-            return (2 * r2 - 3 * r2in + r2out) * (r2out - r2) * (r2out - r2) * std::pow(r2out - r2in, -3);
-        };
 
         // allocate enough memory for all the evaluations (to avoid reallocating inside the loop)
-        std::vector<Operon::Scalar> buf(std::max_element(data_.begin(), data_.end(), [](auto const& a, auto const& b) { return a.Rows() < b.Rows(); })->Rows());
+        //std::vector<Operon::Scalar> buf(std::max_element(data_.begin(), data_.end(), [](auto const& a, auto const& b) { return a.Rows() < b.Rows(); })->Rows());
+        std::unique_ptr<Operon::Scalar> buf;
+        auto max_rows = std::max_element(data_.begin(), data_.end(), [](auto const& a, auto const& b) { return a.Rows() < b.Rows(); })->Rows();
+        buf.reset(new (default_alignment) Operon::Scalar[max_rows]); // NOLINT
 
         for (auto row = 0; row < range.Size(); ++row) {
             ENSURE(range.Start() + row < data_.size());
             auto const& ds = data_[index_[range.Start() + row]];
-            Operon::Range rg{0UL, ds.Rows()};
-
-            interpreter_.get().Evaluate<Operon::Scalar>(tree, ds, rg, { buf.data(), ds.Rows() });
-            Eigen::Map<Eigen::Array<Operon::Scalar, -1, 1>> x(buf.data(), ds.Rows());
-            //res(row) = S{x.unaryExpr([&](auto r) { return r * f(r); }).sum()};
-            //res(row) = S{static_cast<Operon::Scalar>(vstat::univariate::accumulate<Operon::Scalar>(buf_.data(), buf_.size()).sum)};
-            res(row) = S{static_cast<Operon::Scalar>(vu::accumulate<Operon::Scalar>(buf.data(), ds.Rows(), [&](auto r) { return r * f(r); }).sum)};
+            interpreter_.get().Evaluate<Operon::Scalar>(tree, ds, { 0UL, ds.Rows() }, { buf.get(), ds.Rows() });
+            Eigen::Map<Eigen::Array<Operon::Scalar, -1, 1>> x(buf.get(), static_cast<Eigen::Index>(ds.Rows()));
+            x *= ds.Values().col(2); // multiply with smoothing function
+            res(row) = S{static_cast<Operon::Scalar>(vu::accumulate<Operon::Scalar>(buf.get(), ds.Rows()).sum)};
         }
     }
 
@@ -102,20 +95,18 @@ struct summation_function { // NOLINT
 
     [[nodiscard]] auto index() const -> Operon::Span<size_t const> { return {index_.data(), index_.size()}; }
 
-    void apply_permutation(std::vector<Eigen::Index> const& indices) {
-        decltype(data_) tmp; tmp.reserve(data_.size());
-        std::transform(indices.begin(), indices.end(), std::back_inserter(tmp), [&](auto i) { return std::move(data_[indices[i]]); });
-        std::swap(data_, tmp);
-    }
-
     private:
     std::reference_wrapper<Operon::Interpreter> interpreter_;
     std::vector<size_t> index_;
     std::vector<Operon::Dataset> data_;
 
     // inner and outer cut-off radii, in Angstrom. Taken from Hernandez et al. 2019.
-    double inner_radius_{3};
-    double outer_radius_{5};
+    Operon::Scalar inner_radius_{default_inner_radius};
+    Operon::Scalar outer_radius_{default_outer_radius};
+
+    static constexpr Operon::Scalar default_inner_radius{3};
+    static constexpr Operon::Scalar default_outer_radius{5};
+    static constexpr std::align_val_t default_alignment{32};
 };
 } // namespace atomic
 
