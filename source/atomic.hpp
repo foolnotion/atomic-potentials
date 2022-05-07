@@ -3,6 +3,7 @@
 
 #include <Eigen/Core>
 #include <operon/interpreter/interpreter.hpp>
+#include <ranges>
 #include <string>
 #include <vector>
 
@@ -42,10 +43,12 @@ struct summation_function { // NOLINT
     auto operator()(T& m, std::vector<Operon::Node> const& nodes, size_t index, Operon::Range range) -> void
     {
         auto& res = m[index];
-        auto idx = static_cast<Eigen::Index>(index);
+
+        auto it = nodes.begin() + static_cast<int64_t>(index);
+        auto is_sum = [](auto const& n) { return n.HashValue == atomic::summation_function::hash; };
 
         // if this summation node is nested within another summation node, then behave like a passthrough
-        if (std::any_of(nodes.begin() + nodes[idx].Parent, nodes.end(), [](auto const& n) { return n.HashValue == atomic::summation_function::hash; })) {
+        if (std::any_of(nodes.begin() + it->Parent, nodes.end(), is_sum)) {
             res = m[index-1];
             return;
         }
@@ -53,17 +56,14 @@ struct summation_function { // NOLINT
         // create a subtree skipping all previous summation nodes
         std::vector<Operon::Node> subtree;
         subtree.reserve(nodes[index].Length);
-        auto it = nodes.begin() + idx;
-        std::copy_if(it - nodes[idx].Length, it, std::back_inserter(subtree), [](auto const& n) { return n.HashValue != atomic::summation_function::hash; });
+        std::copy_if(it - nodes[index].Length, it, std::back_inserter(subtree), std::not_fn(is_sum));
         auto tree = Operon::Tree(subtree).UpdateNodes();
 
         using S = typename std::remove_reference_t<decltype(res)>::Scalar; // NOLINT
 
         // allocate enough memory for all the evaluations (to avoid reallocating inside the loop)
-        //std::vector<Operon::Scalar> buf(std::max_element(data_.begin(), data_.end(), [](auto const& a, auto const& b) { return a.Rows() < b.Rows(); })->Rows());
-        std::unique_ptr<Operon::Scalar> buf;
-        auto max_rows = std::max_element(data_.begin(), data_.end(), [](auto const& a, auto const& b) { return a.Rows() < b.Rows(); })->Rows();
-        buf.reset(new (default_alignment) Operon::Scalar[max_rows]); // NOLINT
+        auto el = std::ranges::max_element(data_, std::less{}, &Operon::Dataset::Rows);
+        std::unique_ptr<Operon::Scalar> buf(new (default_alignment) Operon::Scalar[el->Rows()]); // NOLINT
 
         for (auto row = 0; row < range.Size(); ++row) {
             ENSURE(range.Start() + row < data_.size());
