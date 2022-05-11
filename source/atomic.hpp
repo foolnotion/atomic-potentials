@@ -25,9 +25,49 @@ auto parse_coordinates(std::string const& coord_path, size_t cluster_size) -> st
 auto parse_energy(std::string const& energy_path) -> std::vector<Operon::Scalar>;
 
 Operon::Hash constexpr sum_hash{1238717263861283123UL};
-Operon::Hash constexpr input_hash{9605156509256513176UL};
+Operon::Hash constexpr pow_hash{9605156509256513176UL};
 
 namespace vu = vstat::univariate;
+
+template<typename Dist>
+struct power_function {
+    // a power function which draws a random exponent from a user-specified distribution
+    static constexpr Operon::Hash hash{pow_hash};
+    static constexpr size_t arity{1};
+
+    power_function()
+        : seed_(hash)
+    {
+    }
+
+    power_function(power_function&&) noexcept = default;
+
+    power_function(power_function const& other) {
+        parameterize_distribution(other.param_);
+        seed_.store(other.seed_.load());
+    };
+
+    template<typename T>
+    auto operator()(T& m, std::vector<Operon::Node> const& nodes, size_t index, Operon::Range /* unused */) -> void
+    {
+        Dist dist(param_);
+        Operon::RandomGenerator random(seed_);
+        using S = typename std::remove_reference_t<decltype(m[index])>::Scalar; // NOLINT
+        auto exponent = S(static_cast<int64_t>(dist(random)));
+        m[index] = m[index-1].pow(exponent);
+        seed_.store(random());
+    }
+
+    template <typename... Args>
+    auto parameterize_distribution(Args... args) const -> void
+    {
+        param_ = typename Dist::param_type { std::forward<Args&&>(args)... };
+    }
+
+    private:
+    mutable std::atomic_ulong seed_{0};
+    mutable typename Dist::param_type param_;
+};
 
 struct summation_function { // NOLINT
     static constexpr Operon::Hash hash{sum_hash};

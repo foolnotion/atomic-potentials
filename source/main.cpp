@@ -203,6 +203,9 @@ auto main(int argc, char** argv) -> int // NOLINT
         atomic::summation_function sum(interpreter);
         sum.load_data(coord_path, static_cast<int>(cluster_size), cutoff_radius);
 
+        atomic::power_function<std::uniform_int_distribution<int64_t>> pow;
+        pow.parameterize_distribution(2, 12);
+
         Operon::RandomGenerator random(config.Seed);
         if (result["shuffle"].as<bool>()) {
             problem.GetDataset().Shuffle(random);
@@ -214,12 +217,17 @@ auto main(int argc, char** argv) -> int // NOLINT
         }
 
         interpreter.GetDispatchTable().RegisterCallable(atomic::summation_function::hash, sum);
+        interpreter.GetDispatchTable().RegisterCallable(decltype(pow)::hash, pow);
 
         Operon::Node sum_node(Operon::NodeType::Dynamic, atomic::summation_function::hash);
         sum_node.Arity = atomic::summation_function::arity;
 
+        Operon::Node pow_node(Operon::NodeType::Dynamic, decltype(pow)::hash);
+        pow_node.Arity = decltype(pow)::arity;
+
         auto& pset = problem.GetPrimitiveSet();
         pset.AddPrimitive(sum_node, 1, 1, 1);
+        //pset.AddPrimitive(pow_node, 1, 1, 1);
         //pset.SetMinMaxArity(static_cast<Operon::Hash>(Operon::NodeType::Div), 1, 1);
 
         Operon::Evaluator error_eval(problem, interpreter, *error, scale);
