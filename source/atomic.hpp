@@ -83,20 +83,21 @@ struct summation_function { // NOLINT
     auto operator()(T& m, std::vector<Operon::Node> const& nodes, size_t index, Operon::Range range) -> void
     {
         auto& res = m[index];
-
-        auto it = nodes.begin() + static_cast<int64_t>(index);
         auto is_sum = [](auto const& n) { return n.HashValue == atomic::summation_function::hash; };
 
         // if this summation node is nested within another summation node, then behave like a passthrough
-        if (std::any_of(nodes.begin() + it->Parent, nodes.end(), is_sum)) {
-            res = m[index-1];
-            return;
+        for (auto parent = nodes[index].Parent; parent != 0; parent = nodes[parent].Parent) {
+            if (is_sum(nodes[parent])) {
+                res = m[index-1];
+                return;
+            }
         }
 
         // create a subtree skipping all previous summation nodes
+        auto it = nodes.begin() + static_cast<int64_t>(index);
         std::vector<Operon::Node> subtree;
-        subtree.reserve(nodes[index].Length);
-        std::copy_if(it - nodes[index].Length, it, std::back_inserter(subtree), std::not_fn(is_sum));
+        subtree.reserve(it->Length);
+        std::copy_if(it - it->Length, it, std::back_inserter(subtree), std::not_fn(is_sum));
         auto tree = Operon::Tree(subtree).UpdateNodes();
 
         using S = typename std::remove_reference_t<decltype(res)>::Scalar; // NOLINT
