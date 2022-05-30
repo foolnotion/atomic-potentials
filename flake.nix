@@ -48,7 +48,7 @@
         };
 
       in rec {
-        defaultPackage = pkgs.gcc11Stdenv.mkDerivation {
+        defaultPackage = pkgs.gcc12Stdenv.mkDerivation {
           name = "atomic-potentials";
           src = self;
 
@@ -102,12 +102,12 @@
 
           shellHook = ''
             LD_LIBRARY_PATH=${
-              pkgs.lib.makeLibraryPath [ pkgs.gcc11Stdenv.cc.cc.lib ]
+              pkgs.lib.makeLibraryPath [ pkgs.gcc12Stdenv.cc.cc.lib ]
             };
           '';
         };
 
-        devShell = pkgs.gcc11Stdenv.mkDerivation {
+        devShell = pkgs.gcc12Stdenv.mkDerivation {
           name = "atomic-dev";
           hardeningDisable = [ "all" ];
           impureUseNativeOptimizations = true;
@@ -131,7 +131,7 @@
 
           shellHook = ''
             LD_LIBRARY_PATH=${
-              pkgs.lib.makeLibraryPath [ pkgs.gcc11Stdenv.cc.cc.lib ]
+              pkgs.lib.makeLibraryPath [ pkgs.gcc12Stdenv.cc.cc.lib ]
             };
           '';
         };
