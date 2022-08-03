@@ -14,10 +14,12 @@
 #if TF_MINOR_VERSION > 2
 #include <taskflow/algorithm/reduce.hpp>
 #endif
+
+#include "operator_factory.hpp"
 #include "operon/algorithms/nsga2.hpp"
-#include "operon/core/format.hpp"
-#include "operon/core/version.hpp"
 #include "operon/core/problem.hpp"
+#include "operon/core/version.hpp"
+#include "operon/formatter/formatter.hpp"
 #include "operon/interpreter/interpreter.hpp"
 #include "operon/operators/creator.hpp"
 #include "operon/operators/crossover.hpp"
@@ -28,9 +30,7 @@
 #include "operon/operators/non_dominated_sorter.hpp"
 #include "operon/operators/reinserter.hpp"
 #include "operon/operators/selector.hpp"
-
 #include "util.hpp"
-#include "operator_factory.hpp"
 
 // atomic
 #include "atomic.hpp"

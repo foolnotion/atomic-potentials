@@ -3,7 +3,7 @@
 
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
-    nur.url = "github:nix-community/NUR";
+    nur.url = "github:foolnotion/nur-pkg";
     nixpkgs.url = "github:nixos/nixpkgs/master";
 
     operon.url = "github:heal-research/operon/cpp20";
@@ -13,8 +13,8 @@
     pypi-deps-db.url = "github:DavHau/pypi-deps-db";
 
     mach-nix = {
-      #url = "github:DavHau/mach-nix";
-      url = "github:bjornfor/mach-nix/adapt-to-make-binary-wrapper";
+      url = "github:DavHau/mach-nix";
+      #url = "github:bjornfor/mach-nix/adapt-to-make-binary-wrapper";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-utils.follows = "flake-utils";
@@ -29,7 +29,6 @@
       let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ nur.overlay ];
         };
         repo = pkgs.nur.repos.foolnotion;
         mach = mach-nix.lib.${system};
@@ -44,6 +43,8 @@
             sympy
           '';
 
+          python = "python39";
+
           ignoreDataOutdated = true;
         };
 
@@ -57,49 +58,36 @@
           nativeBuildInputs = with pkgs; [
             bear
             cmake
-            clang_13
+            clang_14
             clang-tools
             cppcheck
           ];
-          buildInputs = with pkgs; [
-            # Project dependencies and utils for profiling and debugging
-            ceres-solver
+
+          buildInputs = (with pkgs; [
+            cmake
             cxxopts
-            diff-so-fancy
             doctest
             eigen
-            fmt
-            gdb
-            glog
-            hotspot
-            hyperfine
+            fmt_8
+            git
             jemalloc
-            linuxPackages.perf
-            mimalloc
-            ninja
             openlibm
+            pkg-config
+            xxHash
+            taskflow
             operon.defaultPackage.${system}
             pratt-parser.defaultPackage.${system}
             vstat.defaultPackage.${system}
-            pkg-config
-            valgrind
-            xxHash
-
-            # python tools
-            python-env
-
-            # Some dependencies are provided by a NUR repo
-            repo.aria-csv
-            repo.cmake-init
-            repo.cmaketools
-            repo.cpp-sort
-            repo.fast_float
-            repo.robin-hood-hashing
-            repo.scnlib
-            repo.taskflow
-            repo.eve
-          ];
-
+          ]) ++ (with nur.packages.${system}; [
+            # Some dependencies are provided by a private repo 
+            aria-csv
+            cpp-sort
+            eve
+            fast_float
+            robin-hood-hashing
+            scnlib
+            seer
+          ]);
           shellHook = ''
             LD_LIBRARY_PATH=${
               pkgs.lib.makeLibraryPath [ pkgs.gcc12Stdenv.cc.cc.lib ]
@@ -111,20 +99,11 @@
           name = "atomic-dev";
           hardeningDisable = [ "all" ];
           impureUseNativeOptimizations = true;
-          nativeBuildInputs = with pkgs; [
-            bear
-            cmake
-            clang_14
-            clang-tools
-            cppcheck
-            include-what-you-use
-          ];
           buildInputs = defaultPackage.buildInputs ++ (with pkgs; [
             gdb
             hotspot
             hyperfine
             valgrind
-            jemalloc
             linuxPackages.perf
             gnuplot
           ]);

@@ -24,7 +24,6 @@ include(cmake/project-is-top-level.cmake)
 include(cmake/variables.cmake)
 
 # ---- Dependencies ----
-find_package(Ceres REQUIRED)   # use the Ceres optimizer for coefficients tuning
 find_package(Eigen3 REQUIRED)
 find_package(Threads REQUIRED)
 find_package(cxxopts REQUIRED)

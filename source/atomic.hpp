@@ -11,7 +11,7 @@
 #include <operon/core/node.hpp>
 #include <operon/core/types.hpp>
 #include <operon/hash/hash.hpp>
-#include <operon/core/format.hpp>
+#include <operon/formatter/formatter.hpp>
 
 #include <operon/ceres/jet.h>
 #include <vstat/vstat.hpp>
